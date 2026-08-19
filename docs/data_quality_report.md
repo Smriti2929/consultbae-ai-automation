@@ -184,3 +184,24 @@ ambiguities are recorded below.
 The console investigation prints the complete original rows for every pairwise
 name, email, and phone candidate, including all one-to-many combinations. No
 cleaned comparison field is written to disk and no merge decision is made.
+
+## Phase 2 handling decisions
+
+These are handling decisions added after the Phase 1 observations above. They
+do not revise or erase the original findings.
+
+| Observed issue | Phase 2 evidence/handling | Possible implication |
+|---|---|---|
+| Empty Source 2 row | Classified `INVALID_SOURCE_RECORD`; the row and reason remain in the audit. | It contributes no provisional person entity but remains accounted for. |
+| Shifted Source 2 row 20 | Classified `INVALID_SOURCE_RECORD` because email/name/rate/location values occupy incompatible declared fields. No automatic repair is attempted. | The likely `Isha Chopra` identity cannot participate through unreliable field alignment. |
+| Source 3 embedded header | Classified `INVALID_SOURCE_RECORD`; no field from it is indexed as an identifier. | Header text cannot accidentally create a person entity. |
+| Valid normalized email or phone points to one entity | Classified `MATCHED_HIGH_CONFIDENCE`, with the exact evidence field and provisional entity ID recorded. | The attachment is deterministic and reviewable, but provisional IDs are not final database records. |
+| Name-only overlap | Classified `AMBIGUOUS_REVIEW`; candidate entity IDs are shown and no attachment occurs. | Known repeated-name cases remain separate pending human judgment. |
+| Email and phone point to different entities | Classified `AMBIGUOUS_REVIEW` with both field-to-entity mappings. This path is covered by a unit test even though it does not occur in the current files. | A future conflict cannot be silently resolved by field precedence. |
+| Leading-zero phone | Remains invalid for strong-phone matching because Phase 2 does not remove an Indian trunk-prefix `0`. | Visually related pairs documented in Phase 1 remain review cases. |
+
+The generated `matching_audit.json` and `matching_audit.csv` contain one decision
+for each of the 105 source data rows: 53 `NEW_ENTITY`, 31
+`MATCHED_HIGH_CONFIDENCE`, 18 `AMBIGUOUS_REVIEW`, and 3
+`INVALID_SOURCE_RECORD`. The 53 entity IDs are provisional audit constructs,
+not a canonical database.

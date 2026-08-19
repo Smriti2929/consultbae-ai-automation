@@ -35,6 +35,20 @@ This second command creates trimmed comparison forms in memory only and prints
 the original source values for manual review. It does not save normalized data
 or make entity-matching decisions.
 
+## Phase 2: normalization and matching audit
+
+Generate deterministic, explainable matching decisions without creating a
+database:
+
+```bash
+python -m src.matching.generate_report
+```
+
+The command writes `data/processed/matching_audit.json` and
+`data/processed/matching_audit.csv`. Each row preserves the original identity
+values, shows temporary normalized values, and explains its status. Run the
+focused tests with `python -m pytest`.
+
 ## Current scope
 
 Phase 1 intentionally excludes entity matching, canonical database creation,
