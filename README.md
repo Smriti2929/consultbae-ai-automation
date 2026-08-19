@@ -1,8 +1,8 @@
 # ConsultBae AI Automation
 
 This repository contains work for a 48-hour AI automation take-home assignment.
-Only Phase 1 is currently implemented: repository scaffolding and read-only
-inspection of the messy source CSV files.
+It currently includes raw-data inspection, deterministic entity resolution,
+and an auditable canonical SQLite ingestion pipeline.
 
 ## Phase 1: inspect the raw data
 
@@ -49,7 +49,28 @@ The command writes `data/processed/matching_audit.json` and
 values, shows temporary normalized values, and explains its status. Run the
 focused tests with `python -m pytest`.
 
+## Phase 3: build and inspect SQLite
+
+Rebuild the canonical database deterministically:
+
+```bash
+python -m src.database.ingest
+```
+
+The database is written to `data/processed/consultbae.db`. A successful build is
+expected to report 105 source records, 53 canonical persons, 84 linked source
+records, and 21 unresolved records (18 ambiguous plus 3 invalid).
+
+Inspect counts, sample persons, linked provenance, and unresolved rows with:
+
+```bash
+python -m src.database.inspect_db
+```
+
+Repeated ingestion rebuilds and atomically replaces the assignment database;
+it does not append duplicate records.
+
 ## Current scope
 
-Phase 1 intentionally excludes entity matching, canonical database creation,
-Flask, n8n workflows, and audio processing.
+The current implementation intentionally excludes Flask, n8n workflows, audio
+processing, deployment, and dashboard integration.

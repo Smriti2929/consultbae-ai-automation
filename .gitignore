@@ -6,3 +6,7 @@ venv/
 .pytest_cache/
 data/processed/*
 !data/processed/.gitkeep
+*.db-journal
+*.db-wal
+*.db-shm
+*.db.building

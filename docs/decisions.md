@@ -109,3 +109,95 @@ keys or canonical-person claims.
 
 **Why:** provisional IDs make match explanations readable while respecting the
 Phase 2 stop boundary.
+
+## Phase 3
+
+### Database choice: SQLite with Python's built-in driver
+
+The canonical assignment database is `data/processed/consultbae.db`, accessed
+with Python's built-in `sqlite3` module. Foreign-key enforcement is enabled on
+every connection.
+
+**Why:** SQLite is portable, requires no service or credentials, and is enough
+for 105 source records. The built-in driver keeps the database layer small and
+easy to explain.
+
+**Alternative considered:** SQLAlchemy or a server database.
+
+**Why rejected:** neither reduces complexity for this two-table assignment, and
+PostgreSQL/MySQL would add unnecessary infrastructure.
+
+### Schema design: canonical persons separated from source records
+
+`persons` contains one row per safely created entity. `source_records` contains
+one row per original CSV row and has a nullable foreign key to `persons`.
+Status, confidence, evidence, reason, candidate IDs, normalized identity fields,
+and the full raw row JSON are stored with each source record.
+
+**Why:** canonical fields are convenient to query, while separate source rows
+preserve provenance and prevent source-specific attributes from being lost.
+The nullable foreign key lets ambiguous and invalid rows remain represented
+without claiming a person assignment.
+
+**Alternative considered:** one wide merged table.
+
+**Why rejected:** it would mix incompatible source schemas, obscure provenance,
+and encourage ambiguous records to be forced into canonical rows.
+
+### Provisional-to-persistent entity mapping
+
+Phase 2 creates 53 provisional entities. Inspection confirmed that only
+`NEW_ENTITY` and `MATCHED_HIGH_CONFIDENCE` records are attached to them; all
+ambiguous decisions have no matched provisional entity. Each safe provisional
+entity therefore creates one `persons` row. SQLite assigns the integer `id`,
+while unique `provisional_entity_id` records the reproducible mapping.
+
+**Why:** this preserves Phase 2 semantics without treating a temporary ID as the
+database primary key. Ambiguous and invalid source records keep `person_id NULL`.
+
+### Canonical-field precedence
+
+Only safely attached source records are considered. Records are ordered by
+source priority—Source 1, Source 2, Source 3—and then CSV row number. The first
+present whitespace-trimmed raw name becomes `canonical_name`; the first present
+valid normalized email, phone, and city become their canonical fields.
+
+All additional distinct normalized identity values remain in linked source rows.
+When an entity contains more than one name, email, phone, or city,
+`canonical_conflicts_json` records every competing value.
+
+**Why:** this is deterministic, does not depend on whichever record was processed
+last, and does not invent missing values. Source 1 has the broadest identity
+coverage, making it a reasonable representative source for this assignment.
+
+**Alternatives considered:** last-value wins, longest string wins, majority vote,
+or normalizing business fields such as CTC and rate.
+
+**Why rejected/deferred:** those policies can conceal disagreement or introduce
+unsupported semantic conversions. CTC scale, rate units, date formats, status,
+and verification values remain exactly available in `raw_record_json`.
+
+### Provenance and unresolved records
+
+The unique pair `(source_filename, source_row_number)` identifies a source row.
+Its complete original column/value mapping is stored in `raw_record_json`.
+Eighteen ambiguous rows and three invalid rows are inserted with no person ID;
+none is discarded or silently repaired.
+
+**Why:** every one of the 105 rows remains traceable, including the empty row,
+shifted Isha Chopra row, and embedded header.
+
+### Idempotency: validated atomic rebuild
+
+Each ingestion run builds the complete schema and data in
+`consultbae.db.building`, validates counts and foreign keys, closes it, and then
+atomically replaces `consultbae.db`. It does not append to an existing database.
+
+**Why:** a deterministic rebuild is the simplest idempotent strategy for a small
+take-home dataset. Validation occurs before the previous usable database is
+replaced, preventing duplicates and avoiding a partially built final file.
+
+**Alternative considered:** row-by-row upserts.
+
+**Why rejected:** upserts add conflict/update behavior that is unnecessary while
+the assignment database is fully reproducible from immutable CSV files.
