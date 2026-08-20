@@ -83,3 +83,18 @@ def summary_counts(connection: sqlite3.Connection) -> dict[str, int]:
     ).fetchall()
     counts.update({row["match_status"]: row["count"] for row in status_rows})
     return counts
+
+
+def list_audio_submissions(connection: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Return submissions joined to canonical people, newest first."""
+    return connection.execute(
+        """
+        SELECT a.id, a.person_id, a.submitted_name, a.submitted_phone,
+               a.original_filename, a.stored_filename, a.duration_seconds,
+               a.sample_rate_hz, a.bitrate_bps, a.loudness_db, a.created_at,
+               p.canonical_name
+        FROM audio_submissions AS a
+        JOIN persons AS p ON p.id = a.person_id
+        ORDER BY a.created_at DESC, a.id DESC
+        """
+    ).fetchall()

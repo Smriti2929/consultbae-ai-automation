@@ -284,3 +284,21 @@ database operation fails, SQLite rolls back both person and submission changes
 and the file is also removed. Existing Phase 4A databases receive four nullable
 columns through additive `ALTER TABLE` migration; their existing rows and files
 are not rebuilt or deleted.
+
+## Phase 4C
+
+### Audio serving uses a controlled application route
+
+The dashboard never exposes database file paths or absolute filesystem paths.
+Playback URLs contain only the generated stored filename. The Flask endpoint
+first requires an exact `audio_submissions` database match and then uses
+`send_from_directory` rooted at the configured upload directory. Werkzeug's
+safe path handling and the single filename route prevent traversal outside that
+directory; unknown or missing files return 404.
+
+### Metadata is formatted only for display
+
+SQLite continues storing seconds, Hz, bits per second, and dB as numeric values.
+Jinja display filters convert them to seconds/minutes, kHz, kbps, and dB for the
+dashboard while handling legacy NULL values with an em dash. This preserves
+numeric sorting and calculation semantics independently of presentation.

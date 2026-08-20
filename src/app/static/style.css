@@ -1,6 +1,7 @@
 :root { color-scheme: light; font-family: system-ui, sans-serif; }
 body { background: #f4f6f8; margin: 0; color: #17202a; }
 main { max-width: 32rem; margin: 4rem auto; padding: 2rem; background: white; border-radius: .75rem; box-shadow: 0 4px 20px #0001; }
+.dashboard { max-width: 75rem; }
 form { display: grid; gap: .65rem; }
 label { font-weight: 600; margin-top: .5rem; }
 input, button { font: inherit; padding: .75rem; border: 1px solid #b8c2cc; border-radius: .4rem; }
@@ -8,3 +9,12 @@ button { margin-top: 1rem; border: 0; background: #1769aa; color: white; cursor:
 .message { padding: .8rem; margin: 1rem 0; border-radius: .4rem; }
 .error { background: #fde8e8; color: #8a1c1c; }
 .success { background: #e4f7e9; color: #176b32; }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+th, td { padding: .75rem; border-bottom: 1px solid #dbe1e7; text-align: left; vertical-align: top; white-space: nowrap; }
+th { background: #f4f6f8; }
+audio { display: block; width: 15rem; margin-top: .4rem; }
+small, .filename, .unavailable { display: block; }
+small, .filename { color: #52606d; }
+.unavailable { margin-top: .4rem; color: #8a1c1c; }
+.empty-state { padding: 1.5rem; background: #f4f6f8; border-radius: .4rem; }

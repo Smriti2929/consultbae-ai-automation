@@ -10,13 +10,14 @@
     <main>
       <h1>Submit your audio</h1>
       <p>Enter your details and select an audio recording.</p>
+      <p><a href="{{ url_for('submissions') }}">View submissions</a></p>
       {% if error %}<div class="message error" role="alert">{{ error }}</div>{% endif %}
       {% if success %}<div class="message success" role="status">{{ success }}</div>{% endif %}
       <form method="post" enctype="multipart/form-data">
         <label for="name">Name</label>
-        <input id="name" name="name" type="text" required value="{{ request.form.get('name', '') }}">
+        <input id="name" name="name" type="text" required value="{{ form_name if form_name is defined else request.form.get('name', '') }}">
         <label for="phone">Phone number</label>
-        <input id="phone" name="phone" type="tel" required value="{{ request.form.get('phone', '') }}">
+        <input id="phone" name="phone" type="tel" required value="{{ form_phone if form_phone is defined else request.form.get('phone', '') }}">
         <label for="audio">Audio file</label>
         <input id="audio" name="audio" type="file" accept=".wav,.mp3,.m4a,.ogg,.webm,audio/*" required>
         <button type="submit">Submit audio</button>

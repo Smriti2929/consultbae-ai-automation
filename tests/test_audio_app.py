@@ -64,6 +64,38 @@ def test_home_page_loads(app_environment) -> None:
     assert b"Submit your audio" in response.data
 
 
+def test_upload_below_25_mb_is_not_size_rejected(app_environment) -> None:
+    app, database_path, upload_path = app_environment
+    assert app.config["MAX_CONTENT_LENGTH"] == 25 * 1024 * 1024
+    data = {
+        "name": "Known Worker",
+        "phone": "9000000254",
+        "audio": (io.BytesIO(b"a" * 1024), "small.wav"),
+    }
+    response = app.test_client().post("/", data=data, content_type="multipart/form-data")
+    assert response.status_code == 201
+    assert counts(database_path) == (1, 1)
+    assert len(list(upload_path.iterdir())) == 1
+
+
+def test_oversized_upload_returns_friendly_413_without_artifacts(app_environment) -> None:
+    app, database_path, upload_path = app_environment
+    data = {
+        "name": "Oversized New Worker",
+        "phone": "9876543210",
+        "audio": (io.BytesIO(b"a" * (25 * 1024 * 1024 + 1)), "large.wav"),
+    }
+    response = app.test_client().post("/", data=data, content_type="multipart/form-data")
+    assert response.status_code == 413
+    assert b"25 MB" in response.data
+    assert b"Audio file is too large" in response.data
+    assert b"Traceback" not in response.data
+    assert b"RequestEntityTooLarge" not in response.data
+    assert b"werkzeug.exceptions" not in response.data
+    assert counts(database_path) == (1, 0)
+    assert not list(upload_path.iterdir())
+
+
 def test_existing_person_submission_is_linked_without_duplication(app_environment) -> None:
     app, database_path, upload_path = app_environment
     response = submit(app.test_client())
@@ -172,3 +204,97 @@ def test_metadata_failure_does_not_leave_new_person(app_environment) -> None:
     assert response.status_code == 400
     assert counts(database_path) == (1, 0)
     assert not list(upload_path.iterdir())
+
+
+def stored_filename(database_path: Path) -> str:
+    with open_database(database_path) as connection:
+        return connection.execute(
+            "SELECT stored_filename FROM audio_submissions ORDER BY id DESC LIMIT 1"
+        ).fetchone()[0]
+
+
+def test_submissions_empty_state(app_environment) -> None:
+    app, _, _ = app_environment
+    response = app.test_client().get("/submissions")
+    assert response.status_code == 200
+    assert b"No audio submissions yet" in response.data
+    assert b"Submit new audio" in response.data
+
+
+def test_submission_dashboard_formats_metadata_and_identity(app_environment) -> None:
+    app, _, _ = app_environment
+    client = app.test_client()
+    assert submit(client, name="Worker-entered Name").status_code == 201
+    response = client.get("/submissions")
+    assert response.status_code == 200
+    assert b"Worker-entered Name" in response.data
+    assert b"Canonical: Known Worker" in response.data
+    assert b"1.25 s" in response.data
+    assert b"16 kHz" in response.data
+    assert b"256 kbps" in response.data
+    assert b"-18.4 dB" in response.data
+    assert b"LUFS" not in response.data
+    assert b"<audio controls" in response.data
+
+
+def test_audio_endpoint_serves_file_and_blocks_traversal(app_environment) -> None:
+    app, database_path, upload_path = app_environment
+    client = app.test_client()
+    assert submit(client).status_code == 201
+    filename = stored_filename(database_path)
+    response = client.get(f"/audio/{filename}")
+    assert response.status_code == 200
+    assert response.data == b"test audio"
+    secret = upload_path.parent / "secret.txt"
+    secret.write_bytes(b"outside secret")
+    traversal = client.get("/audio/..%2Fsecret.txt")
+    assert traversal.status_code == 404
+    assert b"outside secret" not in traversal.data
+
+
+def test_missing_audio_file_is_unavailable_and_endpoint_404(app_environment) -> None:
+    app, database_path, upload_path = app_environment
+    client = app.test_client()
+    assert submit(client).status_code == 201
+    filename = stored_filename(database_path)
+    (upload_path / filename).unlink()
+    dashboard = client.get("/submissions")
+    assert dashboard.status_code == 200
+    assert b"Audio unavailable" in dashboard.data
+    assert client.get(f"/audio/{filename}").status_code == 404
+
+
+def test_legacy_null_metadata_does_not_crash_dashboard(app_environment) -> None:
+    app, database_path, _ = app_environment
+    client = app.test_client()
+    assert submit(client).status_code == 201
+    with open_database(database_path) as connection:
+        connection.execute(
+            """UPDATE audio_submissions
+               SET duration_seconds = NULL, sample_rate_hz = NULL,
+                   bitrate_bps = NULL, loudness_db = NULL"""
+        )
+        connection.commit()
+    response = client.get("/submissions")
+    assert response.status_code == 200
+    assert response.data.count("—".encode("utf-8")) >= 4
+
+
+def test_submissions_are_newest_first(app_environment) -> None:
+    app, database_path, _ = app_environment
+    client = app.test_client()
+    assert submit(client, name="Older Worker").status_code == 201
+    assert submit(client, name="Newer Worker").status_code == 201
+    with open_database(database_path) as connection:
+        rows = connection.execute("SELECT id FROM audio_submissions ORDER BY id").fetchall()
+        connection.execute(
+            "UPDATE audio_submissions SET created_at = '2026-01-01T00:00:00+00:00' WHERE id = ?",
+            (rows[0]["id"],),
+        )
+        connection.execute(
+            "UPDATE audio_submissions SET created_at = '2026-02-01T00:00:00+00:00' WHERE id = ?",
+            (rows[1]["id"],),
+        )
+        connection.commit()
+    response = client.get("/submissions")
+    assert response.data.index(b"Newer Worker") < response.data.index(b"Older Worker")

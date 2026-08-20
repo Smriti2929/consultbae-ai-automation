@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Audio Submissions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main class="dashboard">
+      <h1>Audio submissions</h1>
+      <p><a href="{{ url_for('index') }}">Submit new audio</a></p>
+      {% if submissions %}
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Worker</th><th>Phone</th><th>Audio</th><th>Duration</th>
+              <th>Sample rate</th><th>Bitrate</th>
+              <th title="FFmpeg mean volume">Loudness</th><th>Submitted</th>
+            </tr></thead>
+            <tbody>
+              {% for submission in submissions %}
+                <tr>
+                  <td>
+                    {{ submission.submitted_name }}
+                    {% if submission.canonical_name and submission.canonical_name != submission.submitted_name %}
+                      <small>Canonical: {{ submission.canonical_name }}</small>
+                    {% endif %}
+                  </td>
+                  <td>{{ submission.submitted_phone }}</td>
+                  <td>
+                    <span class="filename">{{ submission.original_filename }}</span>
+                    {% if submission.audio_available %}
+                      <audio controls preload="none" src="{{ url_for('uploaded_audio', stored_filename=submission.stored_filename) }}"></audio>
+                    {% else %}
+                      <span class="unavailable">Audio unavailable</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ submission.duration_seconds|duration }}</td>
+                  <td>{{ submission.sample_rate_hz|sample_rate }}</td>
+                  <td>{{ submission.bitrate_bps|bitrate }}</td>
+                  <td title="FFmpeg mean volume">{{ submission.loudness_db|loudness }}</td>
+                  <td>{{ submission.created_at|submitted_at }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="empty-state">No audio submissions yet.</p>
+      {% endif %}
+    </main>
+  </body>
+</html>

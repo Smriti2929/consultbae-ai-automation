@@ -120,6 +120,22 @@ a readable audio stream, any required value is unavailable, or FFmpeg cannot
 analyze loudness, the request is rejected. The temporary uploaded file is
 removed and no person or submission created by that request is committed.
 
+### Audio submissions dashboard
+
+Open `http://127.0.0.1:5000/submissions` to view all submissions newest first.
+The page shows the worker identity, submitted phone, original filename, browser
+audio playback, duration, sample rate, bitrate, FFmpeg mean-volume loudness, and
+submission timestamp. Missing legacy metadata displays as unavailable, and a
+missing audio file affects only its own row.
+
+### Audio submissions dashboard
+
+Open `http://127.0.0.1:5000/submissions` to view all submissions newest first.
+The page shows the worker identity, submitted phone, original filename, browser
+audio playback, duration, sample rate, bitrate, FFmpeg mean-volume loudness, and
+submission timestamp. Missing legacy metadata displays as unavailable, and a
+missing audio file affects only its own row.
+
 Run all automated tests with:
 
 ```bash
