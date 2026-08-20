@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ConsultBae Audio Submission</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main>
+      <h1>Submit your audio</h1>
+      <p>Enter your details and select an audio recording.</p>
+      {% if error %}<div class="message error" role="alert">{{ error }}</div>{% endif %}
+      {% if success %}<div class="message success" role="status">{{ success }}</div>{% endif %}
+      <form method="post" enctype="multipart/form-data">
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" required value="{{ request.form.get('name', '') }}">
+        <label for="phone">Phone number</label>
+        <input id="phone" name="phone" type="tel" required value="{{ request.form.get('phone', '') }}">
+        <label for="audio">Audio file</label>
+        <input id="audio" name="audio" type="file" accept=".wav,.mp3,.m4a,.ogg,.webm,audio/*" required>
+        <button type="submit">Submit audio</button>
+      </form>
+    </main>
+  </body>
+</html>

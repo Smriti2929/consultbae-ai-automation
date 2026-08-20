@@ -201,3 +201,41 @@ replaced, preventing duplicates and avoiding a partially built final file.
 
 **Why rejected:** upserts add conflict/update behavior that is unnecessary while
 the assignment database is fully reproducible from immutable CSV files.
+
+## Phase 4A
+
+### Audio files are stored outside SQLite
+
+SQLite stores the submission fields and a relative file path; binary audio is
+written under `uploads/audio/` with a UUID-based filename. This keeps database
+rows small, makes files directly inspectable, and prevents equal original names
+from overwriting one another. Uploaded contents are ignored by Git.
+
+### Phone is the strong identifier for audio submissions
+
+The app calls the existing Phase 2 `normalize_phone` function. Exactly one
+canonical-phone match is linked, no match creates a minimal new person, and
+multiple matches stop for manual review. This reuses the approved identity rule
+and makes the decision deterministic.
+
+### Name-only matching is rejected
+
+Names are preserved and normalized for audit, but never used to attach a worker.
+Phase 2 already demonstrated duplicate names, so name-only or fuzzy matching
+could connect an audio recording to the wrong person. An invalid phone is
+therefore rejected rather than falling back to a name.
+
+### Upload precedes browser microphone recording
+
+File upload satisfies the assignment's recording-or-upload requirement with a
+small, testable HTML form and no browser permission or media-format complexity.
+Microphone recording remains a later enhancement.
+
+### Ingestion and application submissions coexist
+
+The canonical schema includes `audio_submissions`, and the app applies that
+table additively to an existing Phase 3 database. Phase 3 ingestion remains an
+atomic deterministic rebuild while the table is empty. If any audio submission
+exists, ingestion fails before creating or replacing files, with a message that
+the worker data must be backed up or deliberately migrated. This guard favors a
+clear refusal over silently deleting non-reproducible application data.

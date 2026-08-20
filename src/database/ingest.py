@@ -176,6 +176,24 @@ def validate_database(connection, expected_records: int, expected_persons: int) 
 def build_database(database_path: Path = DEFAULT_DATABASE_PATH) -> dict[str, int]:
     """Build in a temporary file, validate, then replace the target atomically."""
     database_path.parent.mkdir(parents=True, exist_ok=True)
+    if database_path.exists():
+        existing_connection = open_database(database_path)
+        try:
+            table_exists = existing_connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'audio_submissions'"
+            ).fetchone()
+            submission_count = (
+                existing_connection.execute("SELECT COUNT(*) FROM audio_submissions").fetchone()[0]
+                if table_exists
+                else 0
+            )
+        finally:
+            existing_connection.close()
+        if submission_count:
+            raise RuntimeError(
+                "Database rebuild refused: audio_submissions contains worker data. "
+                "Back up or migrate those submissions before rebuilding."
+            )
     temporary_path = database_path.with_suffix(database_path.suffix + ".building")
     if temporary_path.exists():
         temporary_path.unlink()
@@ -216,4 +234,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

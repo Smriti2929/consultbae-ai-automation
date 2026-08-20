@@ -1,0 +1,10 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; }
+body { background: #f4f6f8; margin: 0; color: #17202a; }
+main { max-width: 32rem; margin: 4rem auto; padding: 2rem; background: white; border-radius: .75rem; box-shadow: 0 4px 20px #0001; }
+form { display: grid; gap: .65rem; }
+label { font-weight: 600; margin-top: .5rem; }
+input, button { font: inherit; padding: .75rem; border: 1px solid #b8c2cc; border-radius: .4rem; }
+button { margin-top: 1rem; border: 0; background: #1769aa; color: white; cursor: pointer; }
+.message { padding: .8rem; margin: 1rem 0; border-radius: .4rem; }
+.error { background: #fde8e8; color: #8a1c1c; }
+.success { background: #e4f7e9; color: #176b32; }

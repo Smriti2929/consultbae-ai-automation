@@ -48,3 +48,18 @@ CREATE TABLE source_records (
 CREATE INDEX idx_source_records_person_id ON source_records(person_id);
 CREATE INDEX idx_source_records_status ON source_records(match_status);
 
+CREATE TABLE audio_submissions (
+    id INTEGER PRIMARY KEY,
+    person_id INTEGER NOT NULL,
+    submitted_name TEXT NOT NULL,
+    submitted_phone TEXT NOT NULL,
+    normalized_name TEXT NOT NULL,
+    normalized_phone TEXT NOT NULL,
+    original_filename TEXT NOT NULL,
+    stored_filename TEXT NOT NULL UNIQUE,
+    file_path TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (person_id) REFERENCES persons(id)
+);
+
+CREATE INDEX idx_audio_submissions_person_id ON audio_submissions(person_id);

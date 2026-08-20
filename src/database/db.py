@@ -10,6 +10,24 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATABASE_PATH = PROJECT_ROOT / "data" / "processed" / "consultbae.db"
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
+APPLICATION_SCHEMA = """
+CREATE TABLE IF NOT EXISTS audio_submissions (
+    id INTEGER PRIMARY KEY,
+    person_id INTEGER NOT NULL,
+    submitted_name TEXT NOT NULL,
+    submitted_phone TEXT NOT NULL,
+    normalized_name TEXT NOT NULL,
+    normalized_phone TEXT NOT NULL,
+    original_filename TEXT NOT NULL,
+    stored_filename TEXT NOT NULL UNIQUE,
+    file_path TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (person_id) REFERENCES persons(id)
+);
+CREATE INDEX IF NOT EXISTS idx_audio_submissions_person_id
+    ON audio_submissions(person_id);
+"""
+
 
 def open_database(path: Path = DEFAULT_DATABASE_PATH) -> sqlite3.Connection:
     """Open SQLite with named rows and foreign-key checks enabled."""
@@ -22,6 +40,11 @@ def open_database(path: Path = DEFAULT_DATABASE_PATH) -> sqlite3.Connection:
 def initialize_schema(connection: sqlite3.Connection) -> None:
     """Create the Phase 3 schema in an empty database."""
     connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+def ensure_application_schema(connection: sqlite3.Connection) -> None:
+    """Apply the additive Phase 4A schema to an existing Phase 3 database."""
+    connection.executescript(APPLICATION_SCHEMA)
 
 
 def summary_counts(connection: sqlite3.Connection) -> dict[str, int]:
@@ -41,4 +64,3 @@ def summary_counts(connection: sqlite3.Connection) -> dict[str, int]:
     ).fetchall()
     counts.update({row["match_status"]: row["count"] for row in status_rows})
     return counts
-

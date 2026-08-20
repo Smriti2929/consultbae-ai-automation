@@ -23,7 +23,26 @@ def test_schema_initialization(built_database: Path) -> None:
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             )
         }
-    assert {"persons", "source_records"}.issubset(tables)
+    assert {"persons", "source_records", "audio_submissions"}.issubset(tables)
+
+
+def test_rebuild_refuses_to_discard_audio_submissions(built_database: Path) -> None:
+    with open_database(built_database) as connection:
+        person_id = connection.execute("SELECT id FROM persons LIMIT 1").fetchone()[0]
+        connection.execute(
+            """
+            INSERT INTO audio_submissions (
+                person_id, submitted_name, submitted_phone, normalized_name,
+                normalized_phone, original_filename, stored_filename,
+                file_path, created_at
+            ) VALUES (?, 'Test', '9000000000', 'test', '9000000000',
+                      'test.wav', 'unique.wav', 'uploads/audio/unique.wav', 'now')
+            """,
+            (person_id,),
+        )
+        connection.commit()
+    with pytest.raises(RuntimeError, match="rebuild refused"):
+        build_database(built_database)
 
 
 def test_expected_counts_and_idempotency(built_database: Path) -> None:
@@ -126,4 +145,3 @@ def test_summary_status_counts(built_database: Path) -> None:
     assert counts["MATCHED_HIGH_CONFIDENCE"] == 31
     assert counts["AMBIGUOUS_REVIEW"] == 18
     assert counts["INVALID_SOURCE_RECORD"] == 3
-

@@ -10,3 +10,5 @@ data/processed/*
 *.db-wal
 *.db-shm
 *.db.building
+uploads/audio/*
+!uploads/audio/.gitkeep

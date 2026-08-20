@@ -68,9 +68,41 @@ python -m src.database.inspect_db
 ```
 
 Repeated ingestion rebuilds and atomically replaces the assignment database;
-it does not append duplicate records.
+it does not append duplicate records. Once worker audio submissions exist,
+ingestion refuses to replace the database so application data is not silently
+lost. Back up or deliberately migrate that data before rebuilding.
+
+## Phase 4A: run the audio app
+
+Install dependencies and ensure the Phase 3 database exists, then run:
+
+```bash
+pip install -r requirements.txt
+python -m src.database.ingest
+python -m src.app.app
+```
+
+Visit `http://127.0.0.1:5000`. Alternatively, use:
+
+```bash
+flask --app src.app.app run
+```
+
+The worker enters a name and valid phone number and uploads WAV, MP3, M4A, OGG,
+or WebM audio (maximum 25 MB). The app normalizes the phone with the Phase 2
+rule. One canonical phone match links the submission to that person; no match
+creates a person containing only the submitted name and normalized phone;
+multiple matches require manual review. Audio is stored under `uploads/audio/`,
+while its submission and person relationship are stored in SQLite.
+
+Run all automated tests with:
+
+```bash
+python -m pytest
+```
 
 ## Current scope
 
-The current implementation intentionally excludes Flask, n8n workflows, audio
-processing, deployment, and dashboard integration.
+The current implementation intentionally excludes audio metadata/quality
+processing, browser recording, n8n workflows, deployment, authentication, and
+dashboard integration.
