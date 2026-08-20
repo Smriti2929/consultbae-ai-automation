@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS audio_submissions (
     original_filename TEXT NOT NULL,
     stored_filename TEXT NOT NULL UNIQUE,
     file_path TEXT NOT NULL,
+    duration_seconds REAL,
+    sample_rate_hz INTEGER,
+    bitrate_bps INTEGER,
+    loudness_db REAL,
     created_at TEXT NOT NULL,
     FOREIGN KEY (person_id) REFERENCES persons(id)
 );
@@ -43,8 +47,23 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
 
 
 def ensure_application_schema(connection: sqlite3.Connection) -> None:
-    """Apply the additive Phase 4A schema to an existing Phase 3 database."""
+    """Apply additive application schema changes without replacing existing rows."""
     connection.executescript(APPLICATION_SCHEMA)
+    existing_columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(audio_submissions)")
+    }
+    metadata_columns = {
+        "duration_seconds": "REAL",
+        "sample_rate_hz": "INTEGER",
+        "bitrate_bps": "INTEGER",
+        "loudness_db": "REAL",
+    }
+    for column, data_type in metadata_columns.items():
+        if column not in existing_columns:
+            connection.execute(
+                f"ALTER TABLE audio_submissions ADD COLUMN {column} {data_type}"
+            )
+    connection.commit()
 
 
 def summary_counts(connection: sqlite3.Connection) -> dict[str, int]:

@@ -58,6 +58,10 @@ CREATE TABLE audio_submissions (
     original_filename TEXT NOT NULL,
     stored_filename TEXT NOT NULL UNIQUE,
     file_path TEXT NOT NULL,
+    duration_seconds REAL,
+    sample_rate_hz INTEGER,
+    bitrate_bps INTEGER,
+    loudness_db REAL,
     created_at TEXT NOT NULL,
     FOREIGN KEY (person_id) REFERENCES persons(id)
 );

@@ -95,6 +95,31 @@ creates a person containing only the submitted name and normalized phone;
 multiple matches require manual review. Audio is stored under `uploads/audio/`,
 while its submission and person relationship are stored in SQLite.
 
+### Audio-analysis prerequisites
+
+Phase 4B requires both FFmpeg and FFprobe to be installed and available on
+`PATH`. Verify the installation before launching the app:
+
+```bash
+ffmpeg -version
+ffprobe -version
+```
+
+On Windows, install an FFmpeg distribution with a package manager or from the
+official FFmpeg download links, then open a new terminal so the updated `PATH`
+is visible.
+
+Every accepted upload stores duration in seconds, sample rate in Hz, bitrate in
+bits per second, and loudness in dB. FFprobe supplies the first three values.
+Stream bitrate is preferred, with container bitrate as a deterministic fallback.
+FFmpeg's `volumedetect` filter supplies `mean_volume`; `loudness_db` is therefore
+mean volume in dBFS-style decibels, not LUFS.
+
+A supported filename extension is only an initial check. If FFprobe cannot find
+a readable audio stream, any required value is unavailable, or FFmpeg cannot
+analyze loudness, the request is rejected. The temporary uploaded file is
+removed and no person or submission created by that request is committed.
+
 Run all automated tests with:
 
 ```bash
@@ -103,6 +128,6 @@ python -m pytest
 
 ## Current scope
 
-The current implementation intentionally excludes audio metadata/quality
-processing, browser recording, n8n workflows, deployment, authentication, and
+The current implementation intentionally excludes audio quality/noise scoring,
+browser recording, n8n workflows, deployment, authentication, playback, and
 dashboard integration.

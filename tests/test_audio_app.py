@@ -4,8 +4,16 @@ from pathlib import Path
 
 import pytest
 
+from src.audio.metadata import AudioMetadata, AudioMetadataError
 from src.app.app import create_app
 from src.database.db import initialize_schema, open_database
+
+
+TEST_METADATA = AudioMetadata(1.25, 16000, 256000, -18.4)
+
+
+def successful_metadata(_path: Path) -> AudioMetadata:
+    return TEST_METADATA
 
 
 @pytest.fixture()
@@ -28,6 +36,7 @@ def app_environment(tmp_path: Path):
             "TESTING": True,
             "DATABASE": database_path,
             "UPLOAD_DIRECTORY": upload_path,
+            "METADATA_EXTRACTOR": successful_metadata,
         }
     )
     return app, database_path, upload_path
@@ -66,6 +75,10 @@ def test_existing_person_submission_is_linked_without_duplication(app_environmen
         row = connection.execute("SELECT * FROM audio_submissions").fetchone()
         person = connection.execute("SELECT * FROM persons").fetchone()
         assert row["person_id"] == person["id"]
+        assert row["duration_seconds"] == TEST_METADATA.duration_seconds
+        assert row["sample_rate_hz"] == TEST_METADATA.sample_rate_hz
+        assert row["bitrate_bps"] == TEST_METADATA.bitrate_bps
+        assert row["loudness_db"] == TEST_METADATA.loudness_db
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
@@ -131,4 +144,31 @@ def test_ambiguous_phone_requires_manual_review(app_environment) -> None:
     assert response.status_code == 409
     assert b"multiple people" in response.data
     assert counts(database_path) == (2, 0)
+    assert not list(upload_path.iterdir())
+
+
+def test_metadata_failure_removes_file_and_leaves_existing_person(app_environment) -> None:
+    app, database_path, upload_path = app_environment
+
+    def fail(_path: Path):
+        raise AudioMetadataError("not readable audio")
+
+    app.config["METADATA_EXTRACTOR"] = fail
+    response = submit(app.test_client())
+    assert response.status_code == 400
+    assert b"Audio analysis failed" in response.data
+    assert counts(database_path) == (1, 0)
+    assert not list(upload_path.iterdir())
+
+
+def test_metadata_failure_does_not_leave_new_person(app_environment) -> None:
+    app, database_path, upload_path = app_environment
+
+    def fail(_path: Path):
+        raise AudioMetadataError("not readable audio")
+
+    app.config["METADATA_EXTRACTOR"] = fail
+    response = submit(app.test_client(), name="New Worker", phone="9876543210")
+    assert response.status_code == 400
+    assert counts(database_path) == (1, 0)
     assert not list(upload_path.iterdir())

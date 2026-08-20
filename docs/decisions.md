@@ -239,3 +239,48 @@ atomic deterministic rebuild while the table is empty. If any audio submission
 exists, ingestion fails before creating or replacing files, with a message that
 the worker data must be backed up or deliberately migrated. This guard favors a
 clear refusal over silently deleting non-reproducible application data.
+
+## Phase 4B
+
+### FFmpeg and FFprobe provide audio analysis
+
+FFprobe reads the first audio stream and reports duration, sample rate, and
+bitrate as JSON. Stream bitrate is preferred; container bitrate is used only
+when the stream value is absent. FFmpeg runs the `volumedetect` audio filter for
+loudness. Both tools support the app's five containers/codecs consistently and
+avoid separate format-specific Python libraries. Commands use argument lists,
+never a shell, and have a 30-second timeout. Missing executables and decoding
+failures produce explicit errors rather than raw process exceptions.
+
+### Loudness means FFmpeg mean volume
+
+`loudness_db` stores the `mean_volume` value emitted by FFmpeg's `volumedetect`
+filter. It is an average level expressed in dB relative to digital full scale;
+it is not an EBU R128 integrated-loudness or LUFS measurement. This definition
+is simple, reproducible, and sufficient for the assignment's requested dB
+value without implying perceptual loudness analysis.
+
+### Metadata values are numeric
+
+Duration and loudness are stored as SQLite `REAL`; sample rate and bitrate are
+stored as `INTEGER` values in Hz and bits per second. Units and presentation
+formatting belong in a future display layer, so the stored values remain easy
+to sort, filter, and calculate with.
+
+### Invalid audio is rejected after decoding
+
+Extensions remain a useful allowlist but do not prove file content. FFprobe must
+find a readable audio stream and provide every mandatory technical value, and
+FFmpeg must produce a finite mean-volume result. A renamed text file therefore
+cannot become a successful submission. Unknown bitrate is reported as failure
+rather than replaced with an invented estimate.
+
+### Analysis failure leaves no application artifacts
+
+The route saves the uniquely named file, analyzes it, and only then enters the
+SQLite transaction that may create a person and insert the submission. If
+analysis fails, the file is deleted before any database write. If a later
+database operation fails, SQLite rolls back both person and submission changes
+and the file is also removed. Existing Phase 4A databases receive four nullable
+columns through additive `ALTER TABLE` migration; their existing rows and files
+are not rebuilt or deleted.

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.database.db import open_database, summary_counts
+from src.database.db import ensure_application_schema, open_database, summary_counts
 from src.database.ingest import build_database
 
 
@@ -43,6 +43,38 @@ def test_rebuild_refuses_to_discard_audio_submissions(built_database: Path) -> N
         connection.commit()
     with pytest.raises(RuntimeError, match="rebuild refused"):
         build_database(built_database)
+
+
+def test_phase_4a_database_migrates_without_data_loss(tmp_path: Path) -> None:
+    database_path = tmp_path / "phase4a.db"
+    connection = open_database(database_path)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE persons (id INTEGER PRIMARY KEY);
+            INSERT INTO persons (id) VALUES (1);
+            CREATE TABLE audio_submissions (
+                id INTEGER PRIMARY KEY, person_id INTEGER NOT NULL,
+                submitted_name TEXT NOT NULL, submitted_phone TEXT NOT NULL,
+                normalized_name TEXT NOT NULL, normalized_phone TEXT NOT NULL,
+                original_filename TEXT NOT NULL, stored_filename TEXT NOT NULL UNIQUE,
+                file_path TEXT NOT NULL, created_at TEXT NOT NULL,
+                FOREIGN KEY (person_id) REFERENCES persons(id)
+            );
+            INSERT INTO audio_submissions VALUES (
+                1, 1, 'Existing', '9000000000', 'existing', '9000000000',
+                'old.wav', 'old-unique.wav', 'uploads/audio/old-unique.wav', 'now'
+            );
+            """
+        )
+        ensure_application_schema(connection)
+        row = connection.execute("SELECT * FROM audio_submissions WHERE id = 1").fetchone()
+        columns = {item["name"] for item in connection.execute("PRAGMA table_info(audio_submissions)")}
+        assert row["submitted_name"] == "Existing"
+        assert row["duration_seconds"] is None
+        assert {"duration_seconds", "sample_rate_hz", "bitrate_bps", "loudness_db"} <= columns
+    finally:
+        connection.close()
 
 
 def test_expected_counts_and_idempotency(built_database: Path) -> None:

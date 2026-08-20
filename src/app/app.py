@@ -11,6 +11,7 @@ from flask import Flask, render_template, request
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
+from src.audio.metadata import AudioMetadataError, extract_audio_metadata
 from src.database.db import DEFAULT_DATABASE_PATH, ensure_application_schema, open_database
 from src.matching.normalization import normalize_name, normalize_phone
 
@@ -27,6 +28,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         UPLOAD_DIRECTORY=DEFAULT_UPLOAD_DIRECTORY,
         MAX_CONTENT_LENGTH=25 * 1024 * 1024,
         ALLOWED_AUDIO_EXTENSIONS=ALLOWED_AUDIO_EXTENSIONS,
+        METADATA_EXTRACTOR=extract_audio_metadata,
     )
     if test_config:
         app.config.update(test_config)
@@ -91,6 +93,7 @@ def create_app(test_config: dict | None = None) -> Flask:
             stored_filename = f"{uuid4().hex}{extension}"
             stored_path = upload_directory / stored_filename
             audio.save(stored_path)
+            metadata = app.config["METADATA_EXTRACTOR"](stored_path)
             timestamp = datetime.now(timezone.utc).isoformat()
 
             with connection:
@@ -118,19 +121,28 @@ def create_app(test_config: dict | None = None) -> Flask:
                     INSERT INTO audio_submissions (
                         person_id, submitted_name, submitted_phone, normalized_name,
                         normalized_phone, original_filename, stored_filename,
-                        file_path, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        file_path, duration_seconds, sample_rate_hz, bitrate_bps,
+                        loudness_db, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         person_id, submitted_name, submitted_phone, normalized_name,
                         normalized_phone, audio.filename, stored_filename,
-                        str(Path("uploads") / "audio" / stored_filename), timestamp,
+                        str(Path("uploads") / "audio" / stored_filename),
+                        metadata.duration_seconds, metadata.sample_rate_hz,
+                        metadata.bitrate_bps, metadata.loudness_db, timestamp,
                     ),
                 )
             return render_template(
                 "index.html",
                 success=f"Audio submitted successfully (submission #{cursor.lastrowid}); {person_result}.",
             ), 201
+        except AudioMetadataError as error:
+            if stored_path is not None:
+                stored_path.unlink(missing_ok=True)
+            return render_template(
+                "index.html", error=f"Audio analysis failed: {error}"
+            ), 400
         except (OSError, sqlite3.Error):
             if stored_path is not None:
                 stored_path.unlink(missing_ok=True)
