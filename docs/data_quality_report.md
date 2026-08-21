@@ -1,5 +1,41 @@
 # Data Quality Report
 
+## Verified pipeline summary
+
+Final read-only validation on 21 August 2026 produced this reproducible
+ingestion baseline:
+
+| Measure | Count |
+|---|---:|
+| Raw source rows | 105 |
+| Canonical people created by ingestion | 53 |
+| Linked source rows | 84 |
+| Unresolved source rows | 21 |
+| `NEW_ENTITY` | 53 |
+| `MATCHED_HIGH_CONFIDENCE` | 31 |
+| `AMBIGUOUS_REVIEW` | 18 |
+| `INVALID_SOURCE_RECORD` | 3 |
+
+The current local database contains 54 people because one additional person was
+legitimately created by the audio application; it does not alter the 53-person
+ingestion result or any source-row status. There is one audio submission.
+`PRAGMA foreign_key_check` returns no violations.
+
+All 105 input rows remain represented in `source_records`. Linked rows refer to
+a canonical person; ambiguous and invalid rows deliberately retain a NULL
+`person_id`. Full original row mappings are stored in `raw_record_json`, while
+the CSV files remain immutable. The final audit found no Git changes to any raw
+CSV; their SHA-256 hashes are:
+
+- `source1_naukri_applicants.csv`: `ff27b1c3f4d702c5ffe3d79dfec45f1605a4af89f532399f9d2ccc1502fc2834`
+- `source2_gig_workers.csv`: `7d3dd7f1a3eda01048e31b9a5534c1bf438facfc613af405ab332b87414ed040`
+- `source3_cbnexus_contacts.csv`: `e615a893e8676d62fe1c54bcab817eb345ce29028cc58d590527d1e3e2675308`
+
+Ingestion is idempotent: it regenerates the database from immutable inputs in a
+temporary file, validates counts and foreign keys, and atomically replaces the
+target instead of appending. Once audio submissions exist it refuses to rebuild,
+protecting application-created data from accidental loss.
+
 ## Purpose
 
 This report records observations from the Phase 1 read-only inspection. The
