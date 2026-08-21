@@ -332,12 +332,3 @@ security checks, audit logs, structured metrics/traces, alerting, encrypted
 secrets, retention/privacy controls, tested backups, and disaster recovery.
 Webhook and submission requests should carry stable idempotency keys so retries
 cannot create duplicate effects.
-
-## Loom/demo
-
-**Placeholder — replace before submission:** `<FINAL_LOOM_URL>`
-
-The demo should show source irregularities, matching evidence, database counts,
-an audio upload and dashboard playback, duplicate and no-match API calls, both
-n8n branches, the test-versus-production webhook behavior, and the passing test
-suite. Do not claim a deployed environment; demonstrate the local services.
