@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from flask import Flask, abort, render_template, request, send_from_directory
+from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
@@ -18,7 +18,7 @@ from src.database.db import (
     list_audio_submissions,
     open_database,
 )
-from src.matching.normalization import normalize_name, normalize_phone
+from src.matching.normalization import normalize_email, normalize_name, normalize_phone
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -122,6 +122,95 @@ def create_app(test_config: dict | None = None) -> Flask:
         if submission is None:
             abort(404)
         return send_from_directory(upload_directory, stored_filename)
+
+    @app.post("/api/check-duplicate")
+    def check_duplicate():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify(
+                duplicate=False,
+                status="INVALID_REQUEST",
+                person_id=None,
+                matched_by=[],
+                reason="Request body must be a valid JSON object.",
+            ), 400
+
+        supplied_email = payload.get("email")
+        supplied_phone = payload.get("phone")
+        if not any(
+            isinstance(value, str) and value.strip()
+            for value in (supplied_email, supplied_phone)
+        ):
+            return jsonify(
+                duplicate=False,
+                status="INVALID_REQUEST",
+                person_id=None,
+                matched_by=[],
+                reason="At least one email or phone must be supplied.",
+            ), 400
+
+        normalized_email = normalize_email(supplied_email)
+        normalized_phone = normalize_phone(supplied_phone)
+        if normalized_email is None and normalized_phone is None:
+            return jsonify(
+                duplicate=False,
+                status="INVALID_REQUEST",
+                person_id=None,
+                matched_by=[],
+                reason="At least one valid email or phone must be supplied.",
+            ), 400
+
+        connection = open_database(database_path)
+        try:
+            email_matches = (
+                connection.execute(
+                    "SELECT id, canonical_name FROM persons WHERE canonical_email = ?",
+                    (normalized_email,),
+                ).fetchall()
+                if normalized_email is not None
+                else []
+            )
+            phone_matches = (
+                connection.execute(
+                    "SELECT id, canonical_name FROM persons WHERE canonical_phone = ?",
+                    (normalized_phone,),
+                ).fetchall()
+                if normalized_phone is not None
+                else []
+            )
+        finally:
+            connection.close()
+
+        matched_people = {row["id"]: row for row in email_matches + phone_matches}
+        if len(matched_people) > 1:
+            return jsonify(
+                duplicate=False,
+                status="AMBIGUOUS_REVIEW",
+                person_id=None,
+                matched_by=[],
+                reason="Email and phone resolve to different canonical people.",
+            ), 409
+        if not matched_people:
+            return jsonify(
+                duplicate=False,
+                status="NO_MATCH",
+                person_id=None,
+                matched_by=[],
+            )
+
+        person = next(iter(matched_people.values()))
+        matched_by = []
+        if any(row["id"] == person["id"] for row in phone_matches):
+            matched_by.append("phone")
+        if any(row["id"] == person["id"] for row in email_matches):
+            matched_by.append("email")
+        return jsonify(
+            duplicate=True,
+            status="MATCHED_HIGH_CONFIDENCE",
+            person_id=person["id"],
+            matched_by=matched_by,
+            canonical_name=person["canonical_name"],
+        )
 
     @app.post("/")
     def submit_audio():

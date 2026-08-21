@@ -142,6 +142,15 @@ Run all automated tests with:
 python -m pytest
 ```
 
+### Duplicate-check API
+
+The read-only n8n integration endpoint checks normalized email and phone values
+against canonical people:
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/check-duplicate -H "Content-Type: application/json" -d '{"email":"tanvi.gupta31@example.com","phone":"9000000254"}'
+```
+
 ## Current scope
 
 The current implementation intentionally excludes audio quality/noise scoring,
